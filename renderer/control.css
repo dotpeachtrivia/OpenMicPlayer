@@ -89,6 +89,17 @@ header {
 .lamp-playing { color: #0c0d0f; background: var(--green); border-color: var(--green); }
 .lamp-fading  { color: #0c0d0f; background: var(--amber); border-color: var(--amber); }
 
+/* Link lamp: the connection to player-pool. Red is something to fix now;
+   amber is the app working on it by itself. */
+#link-lamp { min-width: 104px; font-size: 12px; }
+.link-off        { color: var(--muted); background: var(--panel); }
+.link-connecting { color: var(--amber); background: #2a2110; border-color: var(--amber-dim); }
+.link-online     { color: var(--green); background: #10251b; border-color: #1f5a3e; }
+.link-offline    { color: var(--red); background: #2b1416; border-color: #6b2a2d; }
+.link-auth,
+.link-error      { color: #0c0d0f; background: var(--red); border-color: var(--red); }
+.link-detached   { color: #0c0d0f; background: var(--amber); border-color: var(--amber); }
+
 /* ---------- banner ---------- */
 
 .banner {
@@ -100,6 +111,12 @@ header {
   background: #33230f;
   border-bottom: 1px solid var(--amber-dim);
   color: var(--amber);
+  flex: 0 0 auto;
+}
+
+.banner-actions {
+  display: flex;
+  gap: 8px;
   flex: 0 0 auto;
 }
 
@@ -177,6 +194,7 @@ main {
 }
 
 input[type="text"],
+input[type="password"],
 input[type="number"] {
   background: var(--bg);
   border: 1px solid var(--line);
@@ -190,6 +208,21 @@ input[type="number"] {
 .field-row input[type="text"] {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* The Player Pool row holds two inputs and two buttons. An input's natural
+   width (~170 px) counts when the grid sizes its columns, whatever its
+   min-width, so the address field starts from zero and takes what is left,
+   and the key field is fixed just wider than its longest hint, "Key
+   (unsaved)". That keeps the row inside the panel at the 1020 px minimum
+   window width. */
+#pool-url {
+  width: 0;
+}
+
+.field-row input[type="password"] {
+  flex: 0 0 130px;
+  width: 130px;
 }
 
 input:focus-visible,
@@ -315,6 +348,7 @@ tbody tr.row-current {
 
 .badge {
   display: inline-block;
+  white-space: nowrap;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 11px;
@@ -328,6 +362,26 @@ tbody tr.row-current {
 .badge-done     { color: var(--muted); background: var(--panel-2); }
 .badge-skipped  { color: var(--muted); background: var(--panel-2); text-decoration: line-through; }
 .badge-current  { color: var(--amber); background: #2a2110; }
+.badge-playing  { color: #0c0d0f; background: var(--green); }
+.badge-hidden   { color: var(--muted); background: var(--panel-2); border: 1px dashed var(--line); }
+.badge-unchecked { color: var(--muted); background: var(--panel-2); }
+
+.tag-jp {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+/* A waiting singer the next call-up will pass over (no number yet, or no
+   video on this laptop): the operator should see it before it matters. */
+tbody tr.row-blocked td:first-child {
+  box-shadow: inset 3px 0 0 var(--red);
+}
 
 .dupe-select {
   background: var(--bg);
@@ -400,6 +454,23 @@ tbody tr.row-current {
   white-space: nowrap;
 }
 
+.nn-sub {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 15px;
+}
+
+.nn-count {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--amber);
+  margin-left: 6px;
+}
+
 .live-controls {
   display: flex;
   align-items: center;
@@ -420,7 +491,8 @@ tbody tr.row-current {
   text-transform: uppercase;
 }
 
-#fade-input {
+#fade-input,
+#interval-input {
   width: 66px;
   font-size: 15px;
   text-align: center;
@@ -456,6 +528,12 @@ button.stop {
 
 button.stop:hover:not(:disabled) {
   background: #2b1416;
+}
+
+/* Skip removes the singer from player-pool, so it takes a second tap. */
+button.armed {
+  border-color: var(--red);
+  color: var(--red);
 }
 
 @media (prefers-reduced-motion: reduce) {

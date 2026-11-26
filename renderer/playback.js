@@ -1,7 +1,8 @@
 'use strict';
 
 // Playback window. Shows exactly one thing at a time: standby image,
-// wait screen, or video. All decisions come from the control panel over
+// wait screen (the called-up singer, their song, and the walk-to-the-stage
+// countdown), or video. All decisions come from the control panel over
 // IPC; this window only executes and reports back.
 //
 // Timing note: the end-point watcher and the fade completion run on
@@ -9,11 +10,15 @@
 // window is hidden, and this window can legally be hidden (single-monitor
 // prep). The main process disables background throttling so these timers
 // hold their rate. rAF is used only for the brightness ramp, which is
-// invisible when hidden anyway.
+// invisible when hidden anyway. The wait-screen countdown is a setInterval
+// against an absolute end time for the same reason, and it only ever
+// displays: nothing starts when it reaches zero. The operator presses Play.
 
 const video = document.getElementById('video');
 const standbyImg = document.getElementById('standby');
 const waitName = document.getElementById('wait-name');
+const waitSong = document.getElementById('wait-song');
+const waitCount = document.getElementById('wait-count');
 
 const CLAMP_MIN = 0.1;
 const CLAMP_MAX = 5;
@@ -25,6 +30,8 @@ let watchTimer = null;
 let fadeTimeout = null;
 let fadeToken = 0; // invalidates a brightness ramp that outlived its fade
 let currentEnd = null; // endSeconds for the playing song, null = play to natural end
+
+let countTimer = null; // the wait screen's countdown
 
 let audioCtx = null;
 let gainNode = null;
@@ -41,6 +48,33 @@ function show(screen) {
   document.body.className = screen ? 'show-' + screen : '';
 }
 
+function stopCountdown() {
+  if (countTimer !== null) {
+    clearInterval(countTimer);
+    countTimer = null;
+  }
+  waitCount.textContent = '';
+  waitCount.classList.remove('ready');
+}
+
+function startCountdown(endsAt) {
+  stopCountdown();
+  if (typeof endsAt !== 'number') return; // no interval: just the name
+  const tick = () => {
+    const left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    if (left > 0) {
+      waitCount.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    } else {
+      waitCount.textContent = 'Get ready';
+      waitCount.classList.add('ready');
+      clearInterval(countTimer);
+      countTimer = null;
+    }
+  };
+  tick();
+  countTimer = setInterval(tick, 250);
+}
+
 function stopWatch() {
   if (watchTimer !== null) {
     clearInterval(watchTimer);
@@ -50,6 +84,7 @@ function stopWatch() {
 
 function resetVideo() {
   stopWatch();
+  stopCountdown();
   if (fadeTimeout !== null) {
     clearTimeout(fadeTimeout);
     fadeTimeout = null;
@@ -180,6 +215,8 @@ playbackBridge.onCmd((cmd) => {
     case 'wait':
       resetVideo();
       waitName.textContent = cmd.name || '';
+      waitSong.textContent = cmd.title || '';
+      startCountdown(cmd.endsAt);
       show('wait');
       break;
     case 'play':
