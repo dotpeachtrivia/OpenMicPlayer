@@ -14,13 +14,17 @@
     <div class="header-right">
       <button id="btn-toggle-playback" class="ghost" title="Show or hide the playback window">Show / hide playback</button>
       <button id="btn-reposition" class="ghost" title="Move playback to the second display, or re-center it">Reposition playback</button>
+      <div id="link-lamp" class="lamp link-off" title="Connection to player-pool">NO LINK</div>
       <div id="lamp" class="lamp lamp-standby">STANDBY</div>
     </div>
   </header>
 
   <div id="banner" class="banner" hidden>
     <span id="banner-text"></span>
-    <button id="banner-close" class="ghost small">Dismiss</button>
+    <span class="banner-actions">
+      <button id="banner-action" class="small" hidden></button>
+      <button id="banner-close" class="ghost small">Dismiss</button>
+    </span>
   </div>
 
   <main>
@@ -37,11 +41,13 @@
         <div class="hint" id="scan-summary">Not scanned yet.</div>
 
         <div class="field-row">
-          <label>Registrant sheet</label>
-          <input id="sheet-url" type="text" placeholder="Published-to-web CSV link" spellcheck="false" />
-          <button id="btn-load-registrants">Load registrants</button>
+          <label>Player Pool</label>
+          <input id="pool-url" type="text" placeholder="https://player-pool.onrender.com" spellcheck="false" />
+          <input id="pool-key" type="password" placeholder="POOL_KEY" spellcheck="false" autocomplete="off" />
+          <button id="btn-pool-connect">Connect</button>
+          <button id="btn-pool-disconnect" class="ghost">Disconnect</button>
         </div>
-        <div class="hint" id="load-summary">Nothing loaded yet.</div>
+        <div class="hint" id="pool-summary">Not connected. Sign-ups come from player-pool once you connect.</div>
 
         <div class="field-row">
           <label>Standby image</label>
@@ -54,11 +60,12 @@
         <div class="card-head">
           <h2>Queue</h2>
           <div class="card-head-actions">
-            <button id="btn-discard" class="ghost small">Discard session</button>
-            <button id="btn-finalize" disabled>Finalize queue</button>
+            <button id="btn-discard" class="ghost small" title="Clears this laptop's files, trims and show progress. The line on player-pool is untouched.">Reset session</button>
+            <button id="btn-reveal" class="small" hidden></button>
+            <button id="btn-start" disabled>Start show</button>
           </div>
         </div>
-        <div class="hint" id="queue-hint">Load registrants and scan the library. Every row needs a matched file before you can finalize.</div>
+        <div class="hint" id="queue-hint">Connect to player-pool and scan the library. Sign-ups appear here as phones register.</div>
         <div class="table-wrap">
           <table id="queue-table">
             <thead>
@@ -99,22 +106,30 @@
         <div class="nn-name" id="now-name">—</div>
       </div>
       <div class="nn-block">
-        <div class="nn-label">Next</div>
+        <div class="nn-label" id="next-label">Next</div>
         <div class="nn-name" id="next-name">—</div>
+        <div class="nn-sub"><span id="next-title"></span> <span id="next-count" class="nn-count"></span></div>
       </div>
     </div>
     <div class="live-controls">
+      <div class="fade-field" title="How long the called-up singer gets to reach the mic. 0 = no countdown. Play is always yours to press.">
+        <label for="interval-input">Interval</label>
+        <input id="interval-input" type="number" min="0" max="120" step="5" value="20" />
+        <span class="fade-unit">sec</span>
+      </div>
       <div class="fade-field">
         <label for="fade-input">Fade</label>
         <input id="fade-input" type="number" min="0.1" max="5" step="0.1" value="2" />
         <span class="fade-unit">sec</span>
       </div>
+      <button id="btn-call" class="big ghost" hidden>Call next</button>
       <button id="btn-skip" class="big ghost" disabled>Skip no-show</button>
       <button id="btn-play" class="big play" disabled>Play</button>
       <button id="btn-stop" class="big stop" disabled>Emergency stop</button>
     </div>
   </footer>
 
+  <script src="reconcile.js"></script>
   <script src="control.js"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist node_modules (
-  echo First run: downloading the app's components. This needs internet and takes a minute or two.
+if not exist node_modules\ws\package.json (
+  echo Downloading the app's components for a first run or an update. This needs internet and takes a minute or two.
   call npm install
 )
 call npm start

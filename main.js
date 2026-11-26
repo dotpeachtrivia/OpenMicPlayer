@@ -1,14 +1,16 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, screen, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, safeStorage, powerMonitor } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { scanLibrary } = require('./lib/indexer');
-const { parseRegistrants } = require('./lib/csv');
 const { makeStore } = require('./lib/store');
 
 // The playback window has no user gesture, so let media autoplay.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// Tests point the app at a throwaway data folder (prefs, session).
+if (process.env.OMP_USER_DATA) app.setPath('userData', process.env.OMP_USER_DATA);
 
 let controlWin = null;
 let playbackWin = null;
@@ -20,6 +22,13 @@ let store = null;
 // panel asks for matches on just the codes it holds (a few dozen rows)
 // instead of receiving a multi-megabyte copy of the whole index over IPC.
 let libraryIndex = null;
+
+// The link to player-pool lives here, not in a renderer: it survives a
+// control-window reload, and the POOL_KEY never reaches a web page.
+let poolLink = null;
+let poolState = null; // the last karaoke line the pool sent
+let poolStatus = { status: 'off', detail: '' };
+let sessionKey = ''; // the key, when the OS offers no safeStorage
 
 function preloadPath() {
   return path.join(__dirname, 'preload.js');
@@ -126,9 +135,19 @@ function createWindows() {
       preload: preloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
+      // Keeps the debounced session save and live countdown on time while the
+      // panel is minimized during a long song.
+      backgroundThrottling: false,
     },
   });
   controlWin.loadFile(path.join(__dirname, 'renderer', 'control.html'));
+  // A reload of the control panel starts it from scratch, which sends the
+  // playback window to standby and cuts a playing song with no fade. Ctrl+R
+  // or F5 is an easy slip on a dark stage, so they do nothing here.
+  controlWin.webContents.on('before-input-event', (event, input) => {
+    const key = String(input.key || '').toLowerCase();
+    if (key === 'f5' || ((input.control || input.meta) && key === 'r')) event.preventDefault();
+  });
   controlWin.on('closed', () => {
     controlWin = null;
     if (playbackWin && !playbackWin.isDestroyed()) playbackWin.close();
@@ -140,10 +159,19 @@ function createWindows() {
 app.whenReady().then(() => {
   store = makeStore(app.getPath('userData'));
   createWindows();
+  startPoolLink();
+  // After sleep the socket is likely dead and the backoff timer stale.
+  powerMonitor.on('resume', () => {
+    if (poolLink) poolLink.reconnectNow();
+  });
 });
 
 app.on('window-all-closed', () => {
   app.quit();
+});
+
+app.on('before-quit', () => {
+  if (poolLink) poolLink.close();
 });
 
 // ---------- IPC: dialogs ----------
@@ -190,21 +218,129 @@ ipcMain.handle('match-codes', (_e, codes) => {
   return { ok: true, matches };
 });
 
-// ---------- IPC: sheet fetch (main process, no CORS) ----------
+// ---------- player-pool link ----------
 
-ipcMain.handle('fetch-sheet', async (_e, url) => {
-  try {
-    const res = await net.fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15000) });
-    if (!res.ok) {
-      return { ok: false, error: 'The sheet URL answered with HTTP ' + res.status + '. Check that the sheet is published to the web as CSV.' };
+function sendPoolEvent(evt) {
+  if (controlWin && !controlWin.isDestroyed()) controlWin.webContents.send('pool-event', evt);
+}
+
+function setPoolStatus(status, detail = '') {
+  poolStatus = { status, detail };
+  sendPoolEvent({ type: 'status', status, detail });
+}
+
+function keyStorage() {
+  return safeStorage.isEncryptionAvailable() ? 'encrypted' : 'session';
+}
+
+function readKey() {
+  const p = store.getPrefs();
+  if (p.poolKeyEnc && safeStorage.isEncryptionAvailable()) {
+    try {
+      return safeStorage.decryptString(Buffer.from(p.poolKeyEnc, 'base64'));
+    } catch {
+      return '';
     }
-    const text = await res.text();
-    return parseRegistrants(text);
+  }
+  return sessionKey;
+}
+
+// Encrypted with the OS keychain where there is one. Where there isn't
+// (some Linux desktops), the key is kept for this run only, never written
+// to disk in plain text.
+function saveKey(key) {
+  if (safeStorage.isEncryptionAvailable()) {
+    store.setPrefs({ poolKeyEnc: safeStorage.encryptString(key).toString('base64') });
+    sessionKey = '';
+  } else {
+    store.setPrefs({ poolKeyEnc: '' });
+    sessionKey = key;
+  }
+}
+
+function stopPoolLink() {
+  if (poolLink) poolLink.close();
+  poolLink = null;
+}
+
+function startPoolLink() {
+  stopPoolLink();
+  const { poolUrl } = store.getPrefs();
+  const key = readKey();
+  if (!poolUrl || !key) {
+    setPoolStatus('off', poolUrl ? 'Enter the POOL_KEY and connect.' : '');
+    return false;
+  }
+  let createPoolLink;
+  try {
+    // Loaded here, not at the top: an install that predates the link (no
+    // `ws` in node_modules) still opens, and says what to do.
+    ({ createPoolLink } = require('./lib/pool-link'));
+  } catch {
+    setPoolStatus('error', 'This install is missing a component. Close the app and run "npm install" in its folder.');
+    return false;
+  }
+  poolLink = createPoolLink({
+    url: poolUrl,
+    key,
+    onState: (gm) => {
+      poolState = gm;
+      sendPoolEvent({ type: 'state', gm });
+    },
+    onStatus: (status, detail) => setPoolStatus(status, detail),
+  });
+  poolLink.connect();
+  return true;
+}
+
+function poolConfig() {
+  const p = store.getPrefs();
+  return { url: p.poolUrl, hasKey: Boolean(readKey()), keyStorage: keyStorage() };
+}
+
+ipcMain.handle('pool-get-state', () => ({ gm: poolState, ...poolStatus, ...poolConfig() }));
+
+ipcMain.handle('pool-connect', (_e, cfg = {}) => {
+  const url = String(cfg.url || '').trim();
+  if (!url) return { ok: false, error: 'Paste the player-pool address first.' };
+  try {
+    require('./renderer/reconcile.js').linkUrl(url); // throws on garbage
+  } catch {
+    return { ok: false, error: 'That does not look like a web address.' };
+  }
+  store.setPrefs({ poolUrl: url });
+  if (cfg.key) saveKey(String(cfg.key).trim());
+  if (!readKey()) return { ok: false, error: 'Enter the POOL_KEY from the Render dashboard.', ...poolConfig() };
+  startPoolLink();
+  return { ok: true, ...poolConfig() };
+});
+
+ipcMain.handle('pool-disconnect', () => {
+  stopPoolLink();
+  setPoolStatus('off', 'Disconnected.');
+  return { ok: true, ...poolConfig() };
+});
+
+ipcMain.handle('pool-forget-key', () => {
+  stopPoolLink();
+  store.setPrefs({ poolKeyEnc: '' });
+  sessionKey = '';
+  setPoolStatus('off', 'Key forgotten.');
+  return { ok: true, ...poolConfig() };
+});
+
+// Only karaoke commands cross from the control panel: the key can do far
+// more (draws, bingo…), and this app has no business doing any of it.
+ipcMain.handle('pool-cmd', async (_e, type, payload) => {
+  if (typeof type !== 'string' || !type.startsWith('karaoke:')) {
+    return { ok: false, code: 'not_allowed', error: 'Only karaoke commands are sent from the player.' };
+  }
+  if (!poolLink) return { ok: false, code: 'offline', error: 'Not connected to player-pool.' };
+  try {
+    const reply = await poolLink.request(type, payload && typeof payload === 'object' ? payload : {});
+    return { ok: true, reply };
   } catch (err) {
-    const msg = err.name === 'TimeoutError' || err.name === 'AbortError'
-      ? 'The sheet did not answer within 15 seconds. Check the venue connection and try again.'
-      : 'Could not reach the sheet: ' + err.message;
-    return { ok: false, error: msg };
+    return { ok: false, code: err.code || 'pool_error', error: err.message };
   }
 });
 
