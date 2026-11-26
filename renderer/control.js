@@ -510,7 +510,13 @@ function renderPool() {
   el.linkLamp.className = 'lamp link-' + st;
   el.poolDisconnect.disabled = S.pool.status === 'off';
   el.poolConnect.textContent = S.pool.status === 'off' ? 'Connect' : 'Reconnect';
-  el.poolKey.placeholder = !S.pool.hasKey ? 'POOL_KEY' : S.pool.keyStorage === 'session' ? 'POOL_KEY (this session)' : 'POOL_KEY (saved)';
+  const session = S.pool.keyStorage === 'session';
+  el.poolKey.placeholder = !S.pool.hasKey ? 'POOL_KEY' : session ? 'Key (unsaved)' : 'Key (saved)';
+  el.poolKey.title = !S.pool.hasKey
+    ? 'The POOL_KEY from the Render dashboard (Environment tab).'
+    : session
+      ? 'Kept until the app closes: this computer has no secure key store, so the key is never written to disk.'
+      : 'Saved encrypted with this computer\'s key store. Type a new one to replace it.';
 
   const parts = [];
   if (S.detached) {

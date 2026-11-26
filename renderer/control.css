@@ -210,9 +210,19 @@ input[type="number"] {
   min-width: 0;
 }
 
+/* The Player Pool row holds two inputs and two buttons. An input's natural
+   width (~170 px) counts when the grid sizes its columns, whatever its
+   min-width, so the address field starts from zero and takes what is left,
+   and the key field is fixed just wider than its longest hint, "Key
+   (unsaved)". That keeps the row inside the panel at the 1020 px minimum
+   window width. */
+#pool-url {
+  width: 0;
+}
+
 .field-row input[type="password"] {
-  flex: 0 1 150px;
-  min-width: 0;
+  flex: 0 0 130px;
+  width: 130px;
 }
 
 input:focus-visible,
@@ -338,6 +348,7 @@ tbody tr.row-current {
 
 .badge {
   display: inline-block;
+  white-space: nowrap;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 11px;
