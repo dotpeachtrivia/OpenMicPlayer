@@ -1,0 +1,12 @@
+{
+  "name": "open-mic-karaoke-player",
+  "version": "0.1.0",
+  "description": "Two-window media player for open-mic karaoke nights: prep, queue, trimmed playback, live fade.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

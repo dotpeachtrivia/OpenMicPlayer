@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Open-Mic Karaoke — Control Panel</title>
+  <link rel="stylesheet" href="control.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-mark">OPEN MIC</span>
+      <span class="brand-sub">Control Panel</span>
+    </div>
+    <div class="header-right">
+      <button id="btn-toggle-playback" class="ghost" title="Show or hide the playback window">Show / hide playback</button>
+      <button id="btn-reposition" class="ghost" title="Move playback to the second display, or re-center it">Reposition playback</button>
+      <div id="lamp" class="lamp lamp-standby">STANDBY</div>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden>
+    <span id="banner-text"></span>
+    <button id="banner-close" class="ghost small">Dismiss</button>
+  </div>
+
+  <main>
+    <section class="col-left">
+      <div class="card" id="setup-card">
+        <h2>Setup</h2>
+
+        <div class="field-row">
+          <label>Video library</label>
+          <input id="library-path" type="text" readonly placeholder="No folder chosen" />
+          <button id="btn-pick-library">Choose folder</button>
+          <button id="btn-scan" disabled>Scan</button>
+        </div>
+        <div class="hint" id="scan-summary">Not scanned yet.</div>
+
+        <div class="field-row">
+          <label>Registrant sheet</label>
+          <input id="sheet-url" type="text" placeholder="Published-to-web CSV link" spellcheck="false" />
+          <button id="btn-load-registrants">Load registrants</button>
+        </div>
+        <div class="hint" id="load-summary">Nothing loaded yet.</div>
+
+        <div class="field-row">
+          <label>Standby image</label>
+          <input id="standby-path" type="text" readonly placeholder="No image chosen (plain black)" />
+          <button id="btn-pick-standby">Choose image</button>
+        </div>
+      </div>
+
+      <div class="card" id="queue-card">
+        <div class="card-head">
+          <h2>Queue</h2>
+          <div class="card-head-actions">
+            <button id="btn-discard" class="ghost small">Discard session</button>
+            <button id="btn-finalize" disabled>Finalize queue</button>
+          </div>
+        </div>
+        <div class="hint" id="queue-hint">Load registrants and scan the library. Every row needs a matched file before you can finalize.</div>
+        <div class="table-wrap">
+          <table id="queue-table">
+            <thead>
+              <tr>
+                <th class="col-order">#</th>
+                <th>Singer</th>
+                <th>Song</th>
+                <th>Trim</th>
+                <th>Status</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="queue-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="col-right">
+      <div class="card" id="preview-card">
+        <h2>Preview &amp; trim</h2>
+        <div class="hint" id="preview-title">Click a queue row to load its video here.</div>
+        <video id="preview" controls preload="metadata"></video>
+        <div class="mark-row">
+          <button id="btn-mark-start" disabled>Set start here</button>
+          <button id="btn-mark-end" disabled>Set end here</button>
+          <button id="btn-clear-marks" class="ghost" disabled>Clear marks</button>
+        </div>
+        <div class="hint" id="marks-readout">Start — · End —</div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="live-strip">
+    <div class="now-next">
+      <div class="nn-block">
+        <div class="nn-label">Now</div>
+        <div class="nn-name" id="now-name">—</div>
+      </div>
+      <div class="nn-block">
+        <div class="nn-label">Next</div>
+        <div class="nn-name" id="next-name">—</div>
+      </div>
+    </div>
+    <div class="live-controls">
+      <div class="fade-field">
+        <label for="fade-input">Fade</label>
+        <input id="fade-input" type="number" min="0.1" max="5" step="0.1" value="2" />
+        <span class="fade-unit">sec</span>
+      </div>
+      <button id="btn-skip" class="big ghost" disabled>Skip no-show</button>
+      <button id="btn-play" class="big play" disabled>Play</button>
+      <button id="btn-stop" class="big stop" disabled>Emergency stop</button>
+    </div>
+  </footer>
+
+  <script src="control.js"></script>
+</body>
+</html>
