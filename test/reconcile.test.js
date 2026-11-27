@@ -205,3 +205,43 @@ test('linkUrl and clampInterval', () => {
   assert.equal(R.clampInterval(-3, 5), 0);
   assert.equal(R.clampInterval('abc', 5), 5);
 });
+
+// Rows from a pool that reports starts carry startedAt, null or a time.
+const live = (id, over = {}) => row(id, { state: 'performing', startedAt: null, ...over });
+
+test('startedPlan: Play confirmed is a start the pool has to hear', () => {
+  const q = [row('a', { state: 'done', startedAt: null }), live('b'), row('c', { startedAt: null })];
+  assert.deepEqual(R.startedPlan(q, 'b', true, {}), { id: 'b', started: true });
+  // Still walking to the mic: nothing to say.
+  assert.equal(R.startedPlan(q, 'b', false, {}), null);
+});
+
+test('startedPlan: a false start or a reload mid-song is a stop', () => {
+  const q = [live('b', { startedAt: 1700000000000 })];
+  assert.deepEqual(R.startedPlan(q, 'b', false, {}), { id: 'b', started: false });
+  // Once the pool says it, there is nothing left to send.
+  assert.equal(R.startedPlan(q, 'b', true, {}), null);
+});
+
+test('startedPlan: nothing while the call-up or the finish is still owed', () => {
+  // Played while the link was down: the pool has not even called them yet.
+  const q = [row('b', { state: 'queued', startedAt: null })];
+  assert.equal(R.startedPlan(q, 'b', true, { b: 'performing' }), null);
+  // Called on the pool, but this laptop's call-up has not been confirmed.
+  assert.equal(R.startedPlan([live('b')], 'b', true, { b: 'performing' }), null);
+  // Their song ended and the finish is on its way.
+  assert.equal(R.startedPlan([live('b', { startedAt: 1 })], 'b', false, { b: 'done' }), null);
+});
+
+test('startedPlan: only the called singer, only while the pool has them on stage', () => {
+  assert.equal(R.startedPlan([live('b')], null, true, {}), null);
+  assert.equal(R.startedPlan([live('b')], 'x', true, {}), null, 'gone from the line');
+  assert.equal(R.startedPlan([row('b', { state: 'done', startedAt: null })], 'b', true, {}), null);
+  assert.equal(R.startedPlan(null, 'b', true, {}), null);
+  assert.equal(R.startedPlan([live('b')], 'b', true, undefined)?.started, true);
+});
+
+test('startedPlan: a pool from before starts were reported is left alone', () => {
+  // row() has no startedAt: an older pool would refuse the message every time.
+  assert.equal(R.startedPlan([row('b', { state: 'performing' })], 'b', true, {}), null);
+});

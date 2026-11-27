@@ -6,12 +6,13 @@ How it fits together:
 
 ```
 phones ──sign up──▶ player-pool (Render) ──thin link (WebSocket, POOL_KEY)──▶ this app ──▶ big screen
-                         ▲                                                       │
-                         └──── call up · done · skip · reorder · reveal ─────────┘
+                         ▲    │                                                  │      (or teleprompter)
+                         │    └──▶ /show-stage: logo + UP NEXT card              │
+                         └──── call up · done · skip · reorder · reveal · started┘
 host console (/gm) ─────┘   (Call up / Done hide there while this app is linked)
 ```
 
-player-pool owns the line: who is in it, the order, the revealed numbers, and each singer's state. This app owns the media: which video plays for each singer, a hand-picked file, duplicate choices and trim marks. It also owns playback and call-ups. Media never leaves this laptop.
+player-pool owns the line: who is in it, the order, the revealed numbers, and each singer's state. This app owns the media: which video plays for each singer, a hand-picked file, duplicate choices and trim marks. It also owns playback and call-ups, and it tells player-pool when each song actually starts, so player-pool's stage screen can follow along. Media never leaves this laptop.
 
 ## Run it
 
@@ -54,7 +55,8 @@ The app remembers the folder, the address and key, the image, and the fade and i
   - The big screen shows **UP NEXT · name · song** with the same countdown. The default is 20 s; the **Interval** box takes 0–120, and 0 means no countdown.
   - At zero the screen reads GET READY.
   - **Nothing starts by itself.** Press **Play** when the singer is at the mic, before zero if they're ready.
-- **Play** starts the called singer's trimmed video. The button locks the instant you press it and unlocks only after playback confirms it started, so a double-click can't re-seek a running song.
+- **Play** starts the called singer's trimmed video. The button locks the instant you press it and unlocks only after playback confirms it started, so a double-click can't re-seek a running song. That confirmation is also sent to player-pool as the song's start (`karaoke:started`).
+- **player-pool's stage screen.** When the videos can't go on the room's screen, the playback window goes on the teleprompter and the room watches player-pool's `/show-stage`. From the host console's Karaoke tab, **Segment logo** puts the uploaded karaoke logo up, and **Up next and countdown** makes each call-up from this app show UP NEXT · name · song with the same countdown. The card gives way to the logo the moment Play confirms, and comes back on a false start or a playback reload. Starts and stops are reconciled like the outbox: each line from the pool is checked against this laptop's state, and anything the link dropped is sent again (`startedPlan` in `renderer/reconcile.js`). A pool from before this feature sends no `startedAt`, and is left alone.
 - **When a song ends**, by reaching its end mark, reaching its natural end, or by Emergency stop, the singer is marked done on player-pool and the next singer is called up at once.
 - **Next singer.** It is the first waiting singer who has both a number and a video. Anyone ahead of them without one is passed over, marked in red, and the queue hint says why.
 - **Skip no-show** takes two taps. It removes the called singer from player-pool's line (their phone can sign up again) and calls the next one. Skipped singers stay listed for the night.
@@ -72,6 +74,8 @@ The app remembers the folder, the address and key, the image, and the fade and i
 ## One monitor or two
 
 With two displays, the playback window goes fullscreen on the second one. With one display (laptop prep), it opens as a movable 960×540 window instead, and "Show / hide playback" tucks it away while you scrub. Plug in the venue's projector, press "Reposition playback", and it jumps to the new display fullscreen.
+
+The second display can be a teleprompter facing the singer rather than the room's screen. The room then watches player-pool's `/show-stage`, which shows the karaoke logo and the UP NEXT card (see "player-pool's stage screen" above).
 
 ## File locations
 

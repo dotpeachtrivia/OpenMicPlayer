@@ -220,6 +220,33 @@
     return { send, satisfied, conflicts };
   }
 
+  /**
+   * Whether player-pool still has to hear that the called singer's song has
+   * started, or that the show is back to waiting for them (a false start, a
+   * playback reload mid-song, a restart). The room's stage screen shows the
+   * "Up next" card until the start, so a start the link dropped would leave
+   * the card up through the whole song. Like the outbox, this only says what
+   * would make the pool match what is true on this laptop.
+   * @param {Array} queue           gmState().queue as the pool last sent it
+   * @param {string|null} calledId  the singer called to the stage, or on it
+   * @param {boolean} live          a song is playing or fading for them
+   * @param {Object} outbox         id -> intent still owed to the pool
+   * @returns {{ id: string, started: boolean } | null}
+   */
+  function startedPlan(queue, calledId, live, outbox) {
+    if (!calledId) return null;
+    // Until the pool has the call-up itself (or while their finish is still
+    // owed), there is nothing on its side to start or stop.
+    if (outbox && outbox[calledId]) return null;
+    const row = (Array.isArray(queue) ? queue : []).find((r) => r.id === calledId);
+    if (!row || row.state !== 'performing') return null;
+    // A pool from before starts were reported sends no startedAt at all; it
+    // would only refuse the message, again on every line it sends.
+    if (!('startedAt' in row)) return null;
+    const started = Boolean(live);
+    return Boolean(row.startedAt) === started ? null : { id: calledId, started };
+  }
+
   /** Pool URL as typed by a person -> the thin link's WebSocket URL. */
   function linkUrl(poolUrl) {
     const raw = String(poolUrl || '').trim();
@@ -250,6 +277,7 @@
     spotForDrop,
     detectWipe,
     outboxReplay,
+    startedPlan,
     linkUrl,
     clampInterval,
   };
