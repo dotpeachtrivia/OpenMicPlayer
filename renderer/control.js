@@ -20,6 +20,10 @@
 //       the new order arrives with the pool's broadcast.
 //   I4  Inside a live connection a vanished row is a real removal. The first
 //       snapshot after a reconnect is checked for a wiped pool first.
+//
+// One more thing only this laptop knows: when a song actually starts. The
+// room's stage screen shows the called singer's "Up next" card until then, so
+// syncStarted() tells the pool, and re-tells it from each line it sends back.
 
 const R = window.Reconcile;
 const $ = (id) => document.getElementById(id);
@@ -299,6 +303,30 @@ async function syncOutbox() {
   }
 }
 
+// ---------- the pool: the song started ----------
+
+// Makes the pool's word on whether the called singer's song is running match
+// this laptop's, the way syncOutbox does for singer states: Play confirmed is
+// a start, a false start or a reload mid-song is a stop. Called after every
+// such change and after every line the pool sends, so a start the link
+// dropped goes out again; once the pool's own line says it, the plan is empty
+// and nothing is sent. A refusal is left alone for the next line to settle.
+let startedInFlight = null;
+async function syncStarted() {
+  if (!online() || !S.gm) return;
+  const live = S.state === 'playing' || S.state === 'fading';
+  const plan = R.startedPlan(S.gm.queue, S.calledId, live, S.outbox);
+  if (!plan) return;
+  const key = plan.id + ':' + plan.started;
+  if (startedInFlight === key) return;
+  startedInFlight = key;
+  try {
+    await api.poolCmd('karaoke:started', { id: plan.id, started: plan.started });
+  } finally {
+    if (startedInFlight === key) startedInFlight = null;
+  }
+}
+
 // ---------- the pool: incoming ----------
 
 function onPoolStatus(status, detail) {
@@ -336,6 +364,7 @@ function acceptPoolState(gm) {
   applyRemoteChanges();
   if (needMatch.length) matchIds(needMatch);
   syncOutbox(); // also replays what a reconnect left owed
+  syncStarted(); // likewise a start (or a stop) the link dropped
   refresh();
   saveSession();
 }
@@ -1012,6 +1041,7 @@ function resyncPlayback() {
     S.state = 'wait';
     S.intervalEndsAt = null;
     cmdWaitFor(S.calledSnap);
+    syncStarted(); // the room's screen goes back to their Up next card
     banner('The playback window reloaded mid-song. Press Play to restart it.');
     refresh();
     saveSessionNow();
@@ -1031,6 +1061,7 @@ api.onPlaybackEvent((evt) => {
       S.busy = false;
       if (S.current) S.current.startedAt = Date.now();
       S.intervalEndsAt = null;
+      syncStarted(); // the room's screen trades the Up next card for the logo
       refresh();
       break;
     case 'fading':
@@ -1048,6 +1079,7 @@ api.onPlaybackEvent((evt) => {
         // stay the called singer, still up on their phone.
         S.intervalEndsAt = null;
         cmdWaitFor(S.calledSnap);
+        syncStarted(); // their Up next card comes back on the room's screen
         banner(cur.name + ' was stopped within ' + FALSE_START_MS / 1000 + ' s of starting, so they are still up. Press Play to restart, or Skip.');
       } else {
         if (cur) sendState(cur.id, 'done');
@@ -1064,6 +1096,7 @@ api.onPlaybackEvent((evt) => {
       S.state = 'wait';
       S.intervalEndsAt = null;
       cmdWaitFor(S.calledSnap);
+      syncStarted();
       refresh();
       break;
     }

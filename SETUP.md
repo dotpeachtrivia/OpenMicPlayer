@@ -5,7 +5,7 @@ This guide takes you from nothing to a working show. It assumes you have never w
 The system has three parts:
 
 1. **player-pool**, a website hosted on Render. Singers open it on their phones, search the songlist, and sign up for a song. The host also runs it from the host console (`/gm`): opening and closing sign-ups, and sorting the line.
-2. **This app, on the show computer.** It connects to player-pool, receives every sign-up as it happens, matches each song to a video on the hard drive, and runs the show on two screens: your control panel and the big screen the room sees.
+2. **This app, on the show computer.** It connects to player-pool, receives every sign-up as it happens, matches each song to a video on the hard drive, and runs the show on two screens: your control panel and the big screen the room sees. If the karaoke videos can't go on the room's screen, the second screen can be a teleprompter facing the singer instead, and player-pool's stage screen shows the room who's up next (see "When the videos can't go on the room's screen" in Part 6).
 3. **The singers' phones.** When a singer is called, their phone buzzes "Please go to the stage!" and counts down with the big screen.
 
 ## What you need before starting
@@ -113,6 +113,7 @@ The bottom strip of the Control Panel is the whole show.
   - Their phone buzzes "Please go to the stage!" and counts down.
   - The big screen shows **UP NEXT**, their name, their song, and the same countdown.
   - At zero the screen says **GET READY**.
+  - If the room watches player-pool's stage screen instead, it shows the same card (see below).
   - **Nothing plays until you press Play.** Press it when the singer has the mic, even before zero.
 - **Play** starts the song at its start mark. It **fades out by itself** at its end mark, the singer is marked done, and the next singer is called up straight away. Between songs your only job is pressing Play when the next singer is ready.
 - **Interval** is how many seconds the countdown gives a singer to reach the stage, from 0 to 120. Set it to 0 for no countdown.
@@ -127,7 +128,18 @@ The bottom strip of the Control Panel is the whole show.
 
 **Screens.** With two displays connected, the Playback window goes fullscreen on the second one by itself. If it lands on the wrong screen, or you plugged the projector in after launching, click **Reposition playback**. On a single screen (prepping at home), Playback is a small movable window; **Show / hide playback** tucks it away while you work.
 
-After the last singer, the big screen returns to your standby image. That's the night.
+**When the videos can't go on the room's screen.** Put the Playback window on the teleprompter instead, so the singer reads the lyrics there. The room's screen keeps running player-pool's stage screen (`/show-stage`), and the host console decides what it shows:
+
+1. In the host console's **Karaoke** tab, under **Stage screen**, click **Upload logo…** and pick the karaoke logo (a PNG under 2 MB; a transparent background looks best). The same logo, its size slider and a Remove button are also in the **Show** tab under **Stage screen → Segment logo**.
+2. Tick **Segment logo**. The logo goes up on the room's screen.
+3. Tick **Up next and countdown**. From now on:
+   - each time this app calls a singer up, the room's screen shows **UP NEXT**, their name, their song and the same countdown, then **GET READY** at zero;
+   - the moment you press **Play**, the room's screen switches to the logo for the whole song;
+   - a false start (stopped within 10 seconds) puts their card back up.
+
+Starting a trivia round, a draw or anything else from the host console takes the room's screen as usual. The next call-up takes it back. To take karaoke off the room's screen, untick both, or press **Show idle screen** in the Show tab.
+
+After the last singer, the big screen returns to your standby image (on a teleprompter setup, the room's screen keeps the logo). That's the night.
 
 ---
 
@@ -137,9 +149,10 @@ After the last singer, the big screen returns to your standby image. That's the 
 2. Plug in the video drive and the projector or second screen.
 3. Double-click the start file. Check that videos are indexed and the link lamp reads LINKED.
 4. Keep the app running and linked while sign-ups are open.
-5. Fix No file rows, set start and end marks, drag the order.
-6. When the slot begins, click Start show.
-7. Press Play when each called singer has the mic. Skip and Emergency stop cover everything that goes sideways.
+5. Teleprompter setup only: in the host console's Karaoke tab, check the logo is uploaded, then tick **Segment logo** and **Up next and countdown**.
+6. Fix No file rows, set start and end marks, drag the order.
+7. When the slot begins, click Start show.
+8. Press Play when each called singer has the mic. Skip and Emergency stop cover everything that goes sideways.
 
 ---
 
